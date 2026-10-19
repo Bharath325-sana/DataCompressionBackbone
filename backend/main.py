@@ -5,7 +5,7 @@ import os
 import uuid
 from datetime import datetime
 
-from compression.compression_engine import (
+from compressors.compression_engine import (
     compress_data,
     decompress_data,
     get_compression_stats,
@@ -585,6 +585,11 @@ async def simulate(
         )
     )
 
+    # Automatically save compressed output for download
+    os.makedirs("compressed_outputs", exist_ok=True)
+    with open(os.path.join("compressed_outputs", f"latest_{algorithm}.bin"), "wb") as _f:
+        _f.write(compressed_data)
+
     # ----------------------------------------------
     # WITH COMPRESSION
     # ----------------------------------------------
@@ -973,3 +978,29 @@ async def compare_algorithms(
         "best_algorithm":
             best_algorithm["algorithm"]
     }
+
+
+# ----------------------------------------------
+# DOWNLOAD COMPRESSED FILE ENDPOINT
+# ----------------------------------------------
+from fastapi.responses import FileResponse
+
+@app.api_route("/download", methods=["GET", "POST"])
+async def download_file(algorithm: str = "zstd"):
+    output_dir = "compressed_outputs"
+    file_path = os.path.join(output_dir, f"latest_{algorithm}.bin")
+
+    if not os.path.exists(file_path):
+        if os.path.exists(output_dir) and os.listdir(output_dir):
+            file_path = os.path.join(output_dir, os.listdir(output_dir)[0])
+        else:
+            raise HTTPException(status_code=404, detail="No compressed file found. Please run the simulation first.")
+
+    ext_map = {"zstd": "zst", "gzip": "gz", "brotli": "br", "lz4": "lz4"}
+    ext = ext_map.get(algorithm.lower(), "bin")
+
+    return FileResponse(
+        path=file_path,
+        filename=f"compressed_output.{ext}",
+        media_type="application/octet-stream"
+    )

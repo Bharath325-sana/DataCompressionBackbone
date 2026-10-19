@@ -1,4 +1,4 @@
-from compression.compression_engine import (
+from compressors.compression_engine import (
     compress_data,
     decompress_data,
     get_compression_stats,
